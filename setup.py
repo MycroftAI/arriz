@@ -17,6 +17,7 @@ from setuptools import setup
 setup(
     name='arriz',
     version='0.1.0',
+    license='Apache-2.0',
     description='A real-time array visualization tool',
     author='Mycroft AI',
     author_email='support@mycroft.ai',
@@ -24,5 +25,23 @@ setup(
     maintainer_email='matthew331199@gmail.com',
     url='https://github.com/mycroftai/arriz',
     py_modules=['arriz'],
-    install_requires=['PySDL2', 'numpy', 'pillow']
+    install_requires=['PySDL2', 'numpy', 'pillow'],
+    keywords='data array visualization',
+    classifiers=[
+        'Development Status :: 3 - Alpha',
+        'Intended Audience :: Developers',
+        'Topic :: Scientific/Engineering :: Visualization',
+        'License :: OSI Approved :: Apache Software License',
+
+        'Programming Language :: Python :: 2',
+        'Programming Language :: Python :: 2.7',
+        'Programming Language :: Python :: 3',
+        'Programming Language :: Python :: 3.0',
+        'Programming Language :: Python :: 3.1',
+        'Programming Language :: Python :: 3.2',
+        'Programming Language :: Python :: 3.3',
+        'Programming Language :: Python :: 3.4',
+        'Programming Language :: Python :: 3.5',
+        'Programming Language :: Python :: 3.6',
+    ]
 )

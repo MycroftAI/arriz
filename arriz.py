@@ -185,8 +185,8 @@ class Arriz(object):
 
             for window in cls.windows.values():
                 px, py = c_int(), c_int()
-                SDL_GetWindowPosition(window.window.window, ctypes.byref(px), ctypes.byref(py))
-                wx, wy = window.window.size
+                SDL_GetWindowPosition(window.sdl_window.window, ctypes.byref(px), ctypes.byref(py))
+                wx, wy = window.sdl_window.size
                 cx, cy = px.value + wx // 2, py.value + wy // 2
                 dx, dy = cx - rx, cy - ry
                 score += (dx * dx + cy * cy) / len(cls.windows)

@@ -23,7 +23,7 @@ def main():
     buffer_len, feature_size = 30, 16
     buffer = np.zeros((buffer_len, feature_size))
     while Arriz.show('Data', buffer):
-        new_feature = buffer[-1] * 0.5 + 0.5 * np.random.random((feature_size,))
+        new_feature = buffer[-1] * 0.9 + 0.1 * np.random.random((feature_size,))
         buffer = np.concatenate([buffer[1:], [new_feature]])
         sleep(0.1)
 

@@ -36,7 +36,7 @@ class Arriz(object):
     closed_windows = set()
 
     @classmethod
-    def show(cls, title, data, initial_width=None, num_colors=16, grid_px=0, key=None):
+    def show(cls, title, data, initial_width=None, num_colors=16, grid_px=0, key=None, bg=True):
         """
         Create a new window or update an existing one
 
@@ -47,6 +47,7 @@ class Arriz(object):
             num_colors (int): How many colors of the gradient to quantize to
             grid_px (int): How many pixels of space between data points
             key (str): Unique identifier for this window. Default key is (title, data.shape)
+            bg (bool): Execute without blocking in thread
         """
         key = key or title
         if key in cls.closed_windows:
@@ -54,12 +55,7 @@ class Arriz(object):
         if key not in cls.windows:
             window = Arriz(title, data.shape, initial_width, num_colors, grid_px)
             cls.windows[key] = cls.windows.pop(window)
-        return cls.windows[key].update(data, title=title)
-
-    @classmethod
-    def show_bg(cls, *args, **kwargs):
-        """Nonblocking show"""
-        return cls.show(*args, **kwargs)
+        return cls.windows[key].update(data, title=title, bg=bg)
 
     def __init__(self, title, data_size, initial_width=None, num_colors=16, grid_px=1):
         self.__init()
@@ -72,9 +68,9 @@ class Arriz(object):
             int(self.data_sx * scaling), int(self.data_sy * scaling)
         )
         self.title = title
-        self.window = sdl2ext.Window(title, position=self._find_position(*size), size=size,
-                                     flags=SDL_WINDOW_RESIZABLE)
-        self.surface = self.window.get_surface()
+        self.sdl_window = sdl2ext.Window(title, position=self._find_position(*size), size=size,
+                                         flags=SDL_WINDOW_RESIZABLE)
+        self.surface = self.sdl_window.get_surface()
         self.running = True
         self.scaling = scaling
         self.colors = {
@@ -86,15 +82,25 @@ class Arriz(object):
         self.draw_lock = Lock()
         self.offset_x = self.offset_y = 0
         self.windows[self] = self
+        self.update_thread = None
 
-    def update(self, arr=None, title=None):
-        if SDL_GetWindowFlags(self.window.window) & SDL_WINDOW_HIDDEN:
+    def update(self, arr=None, title=None, bg=True):
+        if SDL_GetWindowFlags(self.sdl_window.window) & SDL_WINDOW_HIDDEN:
             return False
+        if bg:
+            if not self.update_thread or not self.update_thread.is_alive():
+                self.update_thread = Thread(target=self._update, args=(arr, title), daemon=True)
+                self.update_thread.start()
+            return True
+        else:
+            return self.update(arr, title=title)
+
+    def _update(self, arr, title):
         if title:
-            SDL_SetWindowTitle(self.window.window, title.encode())
+            SDL_SetWindowTitle(self.sdl_window.window, title.encode())
         if arr.shape != (self.data_sx, self.data_sy):
             self.data_sx, self.data_sy = arr.shape
-            cur_sx, cur_sy = self.window.size
+            cur_sx, cur_sy = self.sdl_window.size
             cur_sz = max(cur_sx, cur_sy)
             new_sx = max(cur_sx, int(self.data_sx * self.scaling))
             new_sy = max(cur_sy, int(self.data_sy * self.scaling))
@@ -106,7 +112,7 @@ class Arriz(object):
 
             if fin_sx != cur_sx or fin_sy != cur_sy:
                 SDL_SetWindowSize(
-                    self.window.window,
+                    self.sdl_window.window,
                     fin_sx, fin_sy
                 )
             self._resize(fin_sx, fin_sy)
@@ -114,7 +120,7 @@ class Arriz(object):
         with self.draw_lock:
             if arr is not None:
                 self._draw_arr(arr)
-            self.window.refresh()
+            self.sdl_window.refresh()
         return True
 
     @classmethod
@@ -127,7 +133,7 @@ class Arriz(object):
             from PIL import Image
         except ImportError:
             raise ValueError('Install pillow to use write_png! (pip install pillow)')
-        arr = cls._normalize_arr(np.rot90(arr, 3))
+        arr = np.rot90(cls._normalize_arr(arr), 1)
         px_arr = np.array([[list(_calc_color(val)) for val in row] for row in arr], 'uint8')
         im = Image.fromarray(px_arr, 'RGB')
         im.save(filename)
@@ -138,9 +144,9 @@ class Arriz(object):
         for event in events:
             if event.type == SDL_WINDOWEVENT:
                 for key, window in list(cls.windows.items()):
-                    if SDL_GetWindowID(window.window.window) == event.window.windowID:
+                    if SDL_GetWindowID(window.sdl_window.window) == event.window.windowID:
                         if event.window.event == SDL_WINDOWEVENT_CLOSE:
-                            SDL_HideWindow(window.window.window)
+                            SDL_HideWindow(window.sdl_window.window)
                             del cls.windows[key]
                             cls.closed_windows.add(key)
 
@@ -191,7 +197,7 @@ class Arriz(object):
 
     def _resize(self, sx, sy):
         with self.draw_lock:
-            self.surface = self.window.get_surface()
+            self.surface = self.sdl_window.get_surface()
             scale_x = sx / self.data_sx
             scale_y = sy / self.data_sy
             self.scaling = min(scale_x, scale_y)
@@ -206,7 +212,10 @@ class Arriz(object):
         return (arr - min_val) / (1 if divisor == 0 else divisor)
 
     def _draw_arr(self, arr):
-        arr = self._normalize_arr(arr)
+        if arr.size == 0:
+            return
+        self.last_data = arr
+        arr = np.flip(self._normalize_arr(arr), -1)
 
         color_to_rects = {}
         for i, row in enumerate(arr):
@@ -224,9 +233,6 @@ class Arriz(object):
         _clear_screen(self.surface, (bg_color, bg_color, bg_color))
         for color, rects in color_to_rects.items():
             _draw_rects(self.surface, rects, color)
-
-        self.last_data = arr
-
 
 def _draw_rects(surface, rects, color):
     count = len(rects)

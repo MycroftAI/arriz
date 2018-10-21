@@ -14,7 +14,7 @@ while Arriz.show('Title', np.random.random((60, 60))):
 
 ```
 
-The first time `Arrize.show` is called, it creates a new
+The first time `Arriz.show` is called, it creates a new
 window. Subsequent calls update an existing window based
 on the title text and the shape of the data. 
 
